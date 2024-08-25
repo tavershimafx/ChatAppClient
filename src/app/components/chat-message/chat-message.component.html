@@ -1,0 +1,9 @@
+<p class="message">
+ {{message?.message}}
+  <span class="s-d">{{message?.sentTime | date: 'HH:mm'}} 
+    <span><i class="fa" [ngClass]="{ 
+      'fa-check': message?.isSent, 
+      'fa-check-double': message?.isDelivered,
+      'fa-check-double message-read': message?.isRead }"></i></span>
+  </span>
+</p>

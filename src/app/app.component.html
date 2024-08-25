@@ -1,0 +1,45 @@
+<div class="chat-parent">
+  <aside class="chat-clients">
+    <div class="utils">
+      <span><i class="fa fa-bars"></i></span>
+      <span><input type="text" name="search"></span>
+    </div>
+    <div class="recent-chats">
+      <chat-head *ngFor="let head of recentChats" [head]="head"></chat-head>
+    </div>
+  </aside>
+  <div class="open-ware">
+    <div class="activity-actions">
+      <div class="current">
+        <div class="initials"></div>
+        <div class="v">
+          <p class="recepient">Chatgram</p>
+          <p class="status">Last seen 21:35</p>
+        </div>
+      </div>
+      <div class="activity-icons">
+        <span><i class="fa fa-search"></i></span>
+        <span><i class="fa fa-phone"></i></span>
+        <span><i class="fa fa-ellipsis-vertical"></i></span>
+      </div>
+    </div>
+    <div class="chat-content">
+      <div class="messages">
+         <div class="msg-content">
+          <!-- <p class="message from">
+            OMG 😲 do you remember what you did last night at the work night out?
+            <span class="s-d">12:25 <span><i class="fa fa-check"></i></span></span>
+          </p> -->
+          <chat-message *ngFor="let message of selectedUser?.chats" [message]="message"></chat-message>
+         </div>
+      </div>
+      <div class="message-bottom">
+        <div class="messaging-actions">
+          <button (click)="showEmoji()"><i class="fa fa-smile"></i></button>
+          <input type="text" placeholder="Type a messaff" [(ngModel)]="message" [ngModelOptions]="{ standalone: true }">
+          <button (click)="sendMessage()"><i class="fa fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

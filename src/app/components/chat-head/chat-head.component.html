@@ -1,0 +1,15 @@
+<div class="chat-head">
+  <div class="chat-initials">
+
+  </div>
+  <div class="chat-peek">
+    <div class="v">
+      <p class="sender-name">{{chatHead?.userName}}</p>
+      <p class="date">{{chatHead?.sentTime | date: 'HH:mm'}}</p>
+    </div>
+    <div class="s">
+      <p class="short">{{chatHead?.lastMessage}}</p>
+      <p class="count">{{chatHead?.unreadCount}}</p>
+    </div>
+  </div>
+</div>
