@@ -1,58 +1,40 @@
-.chat-head{
-  display: flex;
-  align-items: center;
-  padding:  10px;
-}
 
-.chat-initials{
-  width: 60px;
-  height: 50px;
-  border: none;
-  border-radius: 100%;
-  background-color: #8BABD8;
-  margin-right: 10px;
-}
-
-.chat-peek, .chat-peek .v, .chat-peek .s{
-  width: 100%;
-}
-
-.chat-peek .v, .chat-peek .s{
-  display: flex;
-  justify-content: space-between;
-}
-
-.chat-peek .v .sender-name{
-  font-size: 16px;
-  display: inline-block;
-  margin: 0;
-  align-content: center;
-  font-family: "Poppins-Medium";
-}
-
-.chat-peek .v .date{
-  font-size: 12px;
-  color: #707991;
-  margin: 0;
-  align-content: center;
-}
-
-.chat-peek .s .short{
-  display: inline-block;
+.message{
+  position: relative;
   font-size: 14px;
-  color: #707991;
-  margin: 0;
-  align-content: center;
+  border-radius: 12px;
+  background-color: #fff;
+  color: #011627;
+  width: fit-content;
+  max-width: 50%;
+  padding: 5px 8px;
+  margin: 0 0 5px 0;
 }
 
-.chat-peek .s .count{
+.message .s-d{
+  display: block;
   font-size: 12px;
-  color: #fff;
+  text-align: right;
+}
+
+.message .s-d i{
+  animation: none;
+  margin-left: 5px;
+}
+
+.message.to-me{
+  background-color: #fff;
+}
+
+.message.from-me{
   background-color: #78E378;
-  border-radius: 100%;
-  margin: 0;
-  height: 20px;
-  width: 20px;
-  text-align: center;
-  align-content: center;
+  margin-left: auto;
+}
+
+.message.from-me span{
+  color: #fff;
+}
+
+.message-read{
+  color: #0b4bf8 !important;
 }

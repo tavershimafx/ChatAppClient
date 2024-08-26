@@ -1,0 +1,55 @@
+.modal-dialog{
+  position: absolute;
+  display: block;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: transparent;
+  z-index: 1000;
+}
+
+.dialog-container{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.dialog-body{
+  display: block;
+  padding: 10px;
+  border-radius: 12px;
+  background-color: #fff;
+  box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.1);
+  animation-name: scale-out;
+  animation-duration: 0.6s;
+  animation-timing-function: ease-in-out;
+}
+
+.dialog-body.sm{
+  width: 25%;
+}
+
+.dialog-body.md{
+  width: 50%;
+}
+
+.dialog-body.lg{
+  width: 75%;
+}
+
+.dialog-body.xl{
+  width: 100%;
+}
+
+@keyframes scale-out {
+  from{
+    transform: scale(0.3, 0.3);
+  }
+
+  to{
+    transform: scale(1, 1);
+  }
+}

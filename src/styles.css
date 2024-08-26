@@ -22,7 +22,7 @@
 
 *{
     font-family: "Poppins-Regular";
-    box-sizing: content-box;
+    box-sizing: border-box;
 }
 
 body, html{
@@ -41,6 +41,32 @@ i.fa:hover{
     animation-fill-mode: forwards;
 }
 
+.theme-btn{
+    width: max-content;
+    font-size: 14px;
+    background-color: #8BABD8;
+    color: #FFF;
+    border: none;
+    outline: none;
+    border-radius: 25px;
+}
+
+.default-btn{
+    width: max-content;
+    font-size: 14px;
+    background-color: #F5F5F5;
+    border: none;
+    outline: none;
+    border-radius: 25px;
+}
+
+.btn-sm{
+    padding: 8px 25px;;
+}
+
+.mt-20{
+    margin-top: 20px !important;
+}
 @keyframes scale-icon {
     to{
         transform: scale(1.2, 1.2);

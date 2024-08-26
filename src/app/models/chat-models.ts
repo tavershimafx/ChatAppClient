@@ -2,19 +2,23 @@ export class ChatMessage{
     message?: string
     sentTime?: string
     readTime?: string
-    ref: number = Math.floor(Math.random() * 1000000000)
+    ref?: number
     id?: string
     senderId?: string
+    recepientId?: string
     isSent?: boolean
     isDelivered?: boolean
     isRead?: boolean
+    constructor(){
+        this.ref = Math.floor(Math.random() * 1000000000)
+    }
 }
 
 export class RecentChat{
     id?: string
-    userId?: string
     profilePic?: string
-    userName?: string
+    username?: string
+    displayName?: string
     isOnline?: boolean
     lastActiveTime?: string
     lastMessage?: string

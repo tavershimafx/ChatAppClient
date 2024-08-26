@@ -9,35 +9,56 @@ import { ChatMessage, RecentChat } from './models/chat-models';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit{
-  message?: undefined
+  q?: string
+  message?: string
+  sError?: string
+  searchUser?: string
   recentChats?: RecentChat[]
   selectedUser?: RecentChat
+  currentUser?: string
+  dialogVisible = false
 
   connection:signalR.HubConnection;
   constructor(){
     this.connection = new signalR.HubConnectionBuilder()
-    .withUrl("/chatHub")
+    .withUrl("https://localhost:7225/chatHub")
     .withAutomaticReconnect([0, 1000, 3000, 5000, 7000, 10000, 12000, 15000, 20000, 30000 ])
     .build();
   }
 
-    ngOnInit(): void {
-      
+  ngOnInit(): void {
     // Start the connection.
       this.start();
-      this.connection.on("LoadMessages", this.loadMessages);
-      this.connection.on("ChatMessage", this.receiveMessage);
+      this.connection.on("LoadMessages", (u, k) => this.loadMessages(u, k));
+      this.connection.on("ChatMessage",  (m) => this.receiveMessage(m));
       this.connection.on("OnlineStatus", this.onlineStatus);
-      this.connection.onclose(this.connectionClosing);
-    }
-  
-
-  receiveMessage(user:any, message:any) {
-    
+      this.connection.on("IsUser",  (d) => this.isUser(d));
+      this.connection.on("DeliveryReport",  (d) => this.deliveryReport(d));
+      
+      this.connection.onclose((e) => this.connectionClosing());
+      this.connection.onreconnected((e) => this.getMessages());
   }
 
-  loadMessages(username:any, messages:any) {
+  newChat(visible:boolean) {
+    if(!visible){
+      this.searchUser = undefined
+    }
     
+    this.dialogVisible = visible
+  }
+
+  sUsr(e:KeyboardEvent){
+    if(e.key == "Enter") this.isUser(this.searchUser)
+  }
+
+  loadUser(head:RecentChat){
+    this.selectedUser = head
+  }
+
+  loadMessages(username:string, recentChats:RecentChat[]) {
+    this.currentUser = username
+
+    this.recentChats = recentChats;
   }
 
   /**
@@ -46,6 +67,25 @@ export class AppComponent implements OnInit{
    */
   onlineStatus(status:any) {
     
+  }
+
+  isUser(data: string | any){
+    this.sError = undefined
+    if(typeof(data) == "string"){
+      this.connection.invoke("IsUser", data).catch(function (err) {
+        return console.error(err.toString());
+      });
+    }else{
+      if(data.valid){
+        this.selectedUser = new RecentChat()
+        this.selectedUser.username = data.username
+        this.selectedUser.displayName = data.username
+        this.newChat(false)
+        this.loadUser(this.selectedUser)
+      }else{
+        this.sError = data.msg
+      }
+    }
   }
 
   /**
@@ -62,8 +102,59 @@ export class AppComponent implements OnInit{
 
   }
 
+  kmsg(e:KeyboardEvent){
+    if(e.key == "Enter") this.sendMessage()
+  }
+
   sendMessage(){
-    this.connection.invoke("SendMessage", "user", this.message).catch(function (err) {
+    if (this.message?.trim() != ""){
+      let msg = new ChatMessage()
+      msg.message = this.message
+      msg.senderId = this.currentUser
+      
+      this.connection.invoke("SendMessage", this.selectedUser?.username, msg).catch(function (err) {
+        return console.error(err.toString());
+      });
+
+      this.recentChats?.find(k => k.username == this.selectedUser?.username)?.chats?.push(msg)
+      this.message = undefined
+    }
+  }
+
+  deliveryReport(message:ChatMessage) {
+    console.log("delivered", message)
+    let ch = this.recentChats?.find(k => k.senderId == message.senderId)?.chats?.find(r => r.ref == message.ref);
+    ch!.id = message.id
+  }
+
+  readReceipt(message:ChatMessage) {
+    console.log("chatRead", message)
+    let ch = this.recentChats?.find(k => k.senderId == message.senderId)?.chats?.find(r => r.id == message.id);
+    ch!.isRead = message.isRead
+    ch!.readTime = message.readTime
+  }
+
+  receiveMessage(message:ChatMessage) {
+    let us = this.recentChats?.find(u => u.username == message.senderId)
+    if (us != null){
+      this.recentChats?.find(u => u.username == message.senderId)!.chats?.push(message)
+    }else{
+      let rc = new RecentChat()
+      rc.displayName = message.senderId
+      rc.isOnline = true
+      rc.lastActiveTime = message.sentTime
+      rc.lastMessage = message.message
+      rc.username = message.senderId
+      rc.chats = new Array<ChatMessage>()
+      rc.chats.push(message)
+
+      if(!this.recentChats) this.recentChats = new Array<RecentChat>()
+      this.recentChats.push(rc)
+    }
+  }
+
+  getMessages(){
+    this.connection.invoke("LoadMessages").catch(function (err) {
       return console.error(err.toString());
     });
   }
@@ -76,8 +167,10 @@ export class AppComponent implements OnInit{
       try {
           await this.connection.start();
           console.log("SignalR Connected.");
+          setTimeout(() => {
+            this.getMessages()
+          }, 1000);
       } catch (err) {
-          console.log(err);
           setTimeout(this.start, 5000);
       }
   };
