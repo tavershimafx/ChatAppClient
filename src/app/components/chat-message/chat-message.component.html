@@ -1,9 +1,9 @@
-<p class="message" #body>
+<p class="message" [ngClass]="{'from-me': isMe}">
  {{message?.message}}
   <span class="s-d">{{message?.sentTime | date: 'HH:mm'}} 
-    <span><i class="fa" [ngClass]="{ 
-      'fa-check': message?.isSent, 
-      'fa-check-double': message?.isDelivered,
-      'fa-check-double message-read': message?.isRead }"></i></span>
+    <span *ngIf="isMe"><i class="fa" [ngClass]="{ 
+      'fa-check': message?.isSent == true, 
+      'fa-check-double': message?.isDelivered == true,
+      'fa-check-double message-read': message?.isRead == true }"></i></span>
   </span>
 </p>

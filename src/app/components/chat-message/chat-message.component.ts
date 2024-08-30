@@ -1,4 +1,6 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
+import { Store } from '@ngrx/store';
+import { UserProfile } from 'src/app/models/app.models';
 import { ChatMessage } from 'src/app/models/chat-models';
 
 @Component({
@@ -8,14 +10,20 @@ import { ChatMessage } from 'src/app/models/chat-models';
 })
 export class ChatMessageComponent implements OnInit{
   @Input() message?: ChatMessage
-  @Input() usr?: string
-  @ViewChild("body", { static: true }) container!: ElementRef
+  //@Input() usr?: string
+  currentUser?:UserProfile
+  isMe = true
+
+  constructor(private store: Store<{profile: UserProfile}>){
+    
+  }
 
   ngOnInit(): void {
-    console.log("message to load", this.message)
-    console.log("user", this.usr)
-    if (this.message?.senderId == this.usr || this.message?.recepientId == this.usr){
-      this.container.nativeElement.classList.add("from-me")
-    }
+    this.store.select(k =>{
+      if(k.profile != undefined){
+        this.currentUser = k.profile;
+        this.isMe = this.message?.senderId == this.currentUser?.username;
+        }
+    }).subscribe();
   }
 }

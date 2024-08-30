@@ -9,7 +9,7 @@
     </div>
     <div class="s">
       <p class="short">{{chatHead?.lastMessage}}</p>
-      <p class="count">{{chatHead?.unreadCount}}</p>
+      <p class="count" *ngIf="chatHead?.unreadCount != 0">{{chatHead?.unreadCount}}</p>
     </div>
   </div>
 </div>

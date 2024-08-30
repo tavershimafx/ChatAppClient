@@ -1,0 +1,29 @@
+
+  <div class="activity-actions">
+    <div class="current">
+      <div class="initials"></div>
+      <div class="v">
+        <p class="recepient">{{selectedHead?.displayName}}</p>
+        <p class="status">{{selectedHead?.lastActiveTime | date: 'dd MMM yyyy'}}</p>
+      </div>
+    </div>
+    <div class="activity-icons">
+      <span><i class="fa fa-search"></i></span>
+      <span (click)="newCall(true)"><i class="fa fa-phone"></i></span>
+      <span><i class="fa fa-ellipsis-vertical"></i></span>
+    </div>
+  </div>
+  <div class="chat-content">
+    <div class="messages">
+       <div class="msg-content">
+        <chat-message *ngFor="let message of selectedHead?.chats" [message]="message"></chat-message>
+      </div> 
+    </div>
+    <div class="message-bottom">
+      <div class="messaging-actions">
+        <button (click)="showEmoji()"><i class="fa fa-smile"></i></button>
+        <input type="text" tabindex="1" placeholder="Type a messaff" #msgInput (keypress)="kmsg($event)" [(ngModel)]="message" [ngModelOptions]="{ standalone: true }">
+        <button (click)="sendMsg()"><i class="fa fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>

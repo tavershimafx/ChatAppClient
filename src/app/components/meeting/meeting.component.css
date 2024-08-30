@@ -1,0 +1,117 @@
+.hidden{
+  display: none;
+}
+
+.new-call-dialog {
+  height: 90vh;
+  background-color: #F1F0F0;
+  position: relative;
+}
+
+.dialog-head{
+  width: 100%;
+  background-color: #fff;
+  padding: 10px 20px;
+  text-align: right;
+}
+
+.dialog-head p{
+  font-size: 18px;
+  margin: 0;
+}
+
+.meeting-surface{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  height: 75%;
+}
+
+.meeting-surface img{
+  width: 150px;
+}
+
+.new-call-dialog .call-controls{
+  width: 100%;
+  padding: 20px;
+  display: inline-block;
+  position: absolute;
+  bottom: 0;
+  background-color: #fff;
+  text-align: center;
+}
+
+.new-call-dialog .call-controls .fa,
+.new-call-dialog .call-controls .lni{
+  display: inline-block;
+  width: 4%;
+  height: 40px;
+  border-radius: 100%;
+  background-color: #DFEBFF;
+  color: #0060FF;
+  font-size: 18px;
+  text-align: center;
+  align-content: center;
+}
+
+.new-call-dialog .call-controls span{
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  border-radius: 100%;
+}
+
+.new-call-dialog .call-controls .fa.active{
+  background-color: #0060FF;
+  color: #fff;
+}
+
+.end-call{
+  float: right;
+}
+
+.stream-head{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #00000086;
+  width: 500px;
+  margin-top: 25px;
+  padding: 20px 10px;
+}
+
+.stream-head .timing{
+  font-size: 12px;
+  color: #F5F5F5;
+  display: inline-block;
+}
+
+.stream-head .media-length{
+  display: inline-block;
+  height: 8px;
+  width: 100%;
+  margin: 0 5px;
+  padding: 0;
+  background-color: #F5F5F5;
+}
+
+.stream-head .media-length .loaded{
+  height: 8px;
+  width: 75%;
+  margin: 0;
+  padding: 0;
+  background-color: #A5A5A5;
+}
+
+.stream-head .media-length .loaded .play-position{
+  height: 8px;
+  width: 25%;
+  margin: 0;
+  padding: 0;
+  background-color: #1f1e1e;
+}
+
+.new-audio-dialog{
+  padding: 10px;
+}

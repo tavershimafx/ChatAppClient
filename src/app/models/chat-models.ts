@@ -2,15 +2,16 @@ export class ChatMessage{
     message?: string
     sentTime?: string
     readTime?: string
-    ref?: number
-    id?: string
+    ref?: string
+    id?: number
     senderId?: string
     recepientId?: string
     isSent?: boolean
     isDelivered?: boolean
+    deliveryTime?: string
     isRead?: boolean
     constructor(){
-        this.ref = Math.floor(Math.random() * 1000000000)
+        this.ref = Math.floor(Math.random() * 1000000000).toString()
     }
 }
 

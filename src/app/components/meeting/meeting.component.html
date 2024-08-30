@@ -1,0 +1,51 @@
+
+<div class="new-call-dialog">
+  <div class="dialog-head">
+    <p (click)="endCall()"><i class="fa fa-times"></i></p>
+  </div>
+  <div class="meeting-surface">
+    <img src="/assets/images/wave.webp" alt="">
+    <div class="stream-head">
+      <span class="timing">1:25</span>
+      <div class="media-length">
+        <div class="loaded">
+          <div class="play-position"></div>
+        </div>
+      </div>
+      <span class="timing">5:25</span>
+    </div>
+    <!-- <input type="range" #pan (input)="volChange()" min="0" max="2" value="1" step="0.01">
+    <button data-playing="false" #playBtn role="switch" aria-checked="false"
+    (click)="playPause()"
+    (ended)="setStop()">
+      <span>Play/Pause</span>
+    </button>
+    
+    <input type="range" #vol (input)="volChange()" min="0" max="2" value="1" step="0.01"> -->
+  </div>
+  <div class="call-controls">
+   <span><i class="fa fa-microphone" (click)="newAudio(true)" [ngClass]="{'active': isStreaming}"></i></span>
+   <span (click)="uploadBtn()"><i class="fa fa-video"></i></span>
+   <span (click)="streamBtn()"><i class="fa fa-display"></i></span>
+   <span><i class="fa fa-record-vinyl"></i></span>
+   <span><i class="lni lni-comments"></i></span>
+   <span><i class="fa fa-ellipsis-vertical"></i></span>
+   <button class="end-call btn btn-sm danger">End Call</button>
+  </div>
+ </div>
+
+ <modal-dialog *ngIf="audioDialog" size="md"> 
+  <div class="new-audio-dialog">
+    <div class="dialog-head">
+      <p (click)="newAudio(false)"><i class="fa fa-times"></i></p>
+    </div>
+   <p>New Audio stream</p>
+   <p *ngIf="!audioFileBuffer">Select Audio Stream</p>
+   <p *ngIf="audioFileBuffer">{{fileName}}</p>
+   <input type="file" class="hidden" #fileInput (change)="selectFile()">
+   <div class="btn-group">
+     <button class="default-btn btn-sm" (click)="startStream()">Stream</button>
+     <button class="theme-btn btn-sm" (click)="openSelect()">Select File</button>
+   </div>
+  </div>
+ </modal-dialog>

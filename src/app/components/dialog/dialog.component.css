@@ -19,8 +19,8 @@
 
 .dialog-body{
   display: block;
-  padding: 10px;
   border-radius: 12px;
+  overflow: hidden;
   background-color: #fff;
   box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.1);
   animation-name: scale-out;

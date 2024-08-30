@@ -2,6 +2,7 @@
   display: flex;
   align-items: center;
   padding:  10px;
+  height: 70px;
 }
 
 .chat-initials{
@@ -11,6 +12,11 @@
   border-radius: 100%;
   background-color: #8BABD8;
   margin-right: 10px;
+}
+
+.chat-peek{
+  height: 50px;
+  overflow: hidden;
 }
 
 .chat-peek, .chat-peek .v, .chat-peek .s{
@@ -42,7 +48,10 @@
   font-size: 14px;
   color: #707991;
   margin: 0;
-  align-content: center;
+  overflow: hidden;
+  width: 240px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-peek .s .count{

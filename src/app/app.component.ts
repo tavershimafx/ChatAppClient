@@ -1,6 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import * as signalR from '@microsoft/signalr'
 import { ChatMessage, RecentChat } from './models/chat-models';
+import { Store } from '@ngrx/store';
+import { UserProfile } from './models/app.models';
+import { userGlobal } from './store/actions/profile.action';
 
 
 @Component({
@@ -10,16 +13,16 @@ import { ChatMessage, RecentChat } from './models/chat-models';
 })
 export class AppComponent implements OnInit{
   q?: string
-  message?: string
   sError?: string
   searchUser?: string
   recentChats?: RecentChat[]
-  selectedUser?: RecentChat
-  currentUser?: string
-  dialogVisible = false
+  selectedHead?: RecentChat
+  currentUser?: UserProfile
+  chatDialog = false
+  callDialog = false
 
   connection:signalR.HubConnection;
-  constructor(){
+  constructor(private store:Store){
     this.connection = new signalR.HubConnectionBuilder()
     .withUrl("https://localhost:7225/chatHub")
     .withAutomaticReconnect([0, 1000, 3000, 5000, 7000, 10000, 12000, 15000, 20000, 30000 ])
@@ -28,11 +31,12 @@ export class AppComponent implements OnInit{
 
   ngOnInit(): void {
     // Start the connection.
-      this.start();
+      //this.start();
       this.connection.on("LoadMessages", (u, k) => this.loadMessages(u, k));
       this.connection.on("ChatMessage",  (m) => this.receiveMessage(m));
-      this.connection.on("OnlineStatus", this.onlineStatus);
+      this.connection.on("IsOnline", (m) => this.isOnline(m));
       this.connection.on("IsUser",  (d) => this.isUser(d));
+      this.connection.on("IsRead",  (d) => this.isRead(d));
       this.connection.on("DeliveryReport",  (d) => this.deliveryReport(d));
       
       this.connection.onclose((e) => this.connectionClosing());
@@ -44,30 +48,56 @@ export class AppComponent implements OnInit{
       this.searchUser = undefined
     }
     
-    this.dialogVisible = visible
+    this.chatDialog = visible
   }
 
-  sUsr(e:KeyboardEvent){
+  sleep(ms:any) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  
+  async sendData(data:Uint8Array) {
+    console.log("sending byte data...")
+
+    for (let index = 0; index < data.length; index+=1000) {
+      const chunk = data.slice(index, 1000);
+      this.connection.invoke("SendByteData", chunk).catch(function (err) {
+        return console.error(err.toString());
+      });
+
+      //this.sleep(2000).then(() => { console.log('data sent!'); });
+    }
+    
+  }
+
+  newCall(visible:boolean) {
+    this.callDialog = visible
+  }
+
+  kUsr(e:KeyboardEvent){
     if(e.key == "Enter") this.isUser(this.searchUser)
   }
 
   loadUser(head:RecentChat){
-    this.selectedUser = head
+    this.selectedHead = head
+    let unread = this.selectedHead.chats?.filter(r => r.senderId == this.currentUser?.username && r.isRead == false).map(i => i.id!);
+    let read = this.selectedHead.chats?.filter(r => r.recepientId != this.selectedHead?.username && r.isRead == false).map(i => i.id!);
+    this.sendReadReceipt(read!)
+    this.isRead(unread)
+    this.selectedHead.unreadCount = 0;
+    //this.selectedUser.chats?.forEach((r, i) => r.isRead = true)
+    //this.recentChats?.find(p => p.username == head.username)?.chats?.forEach((r, i) => r.isRead = true)
   }
 
   loadMessages(username:string, recentChats:RecentChat[]) {
-    this.currentUser = username
-
     this.recentChats = recentChats;
+    let p = new UserProfile();
+    p.displayName = username;
+    p.username = username;
+    this.currentUser = p;
+
+    (this.store as Store<{profile: UserProfile}>).dispatch(userGlobal({profile: p}));
   }
 
-  /**
-   * Show the online status of a user
-   * @param status 
-   */
-  onlineStatus(status:any) {
-    
-  }
 
   isUser(data: string | any){
     this.sError = undefined
@@ -77,11 +107,17 @@ export class AppComponent implements OnInit{
       });
     }else{
       if(data.valid){
-        this.selectedUser = new RecentChat()
-        this.selectedUser.username = data.username
-        this.selectedUser.displayName = data.username
+        if (this.recentChats?.find(u => u.username == data.username) == undefined){
+          this.selectedHead = new RecentChat()
+          this.selectedHead.username = data.username
+          this.selectedHead.displayName = data.username
+          this.newChat(false)
+          this.loadUser(this.selectedHead)
+          return
+        }
+        
         this.newChat(false)
-        this.loadUser(this.selectedUser)
+        this.loadUser(this.recentChats?.find(u => u.username == data.username)!)
       }else{
         this.sError = data.msg
       }
@@ -92,52 +128,99 @@ export class AppComponent implements OnInit{
    * Check if a user is online
    * @param userId 
    */
-  isOnline(userId:any) {
-    this.connection.invoke("IsOnline", userId).catch(function (err) {
-      return console.error(err.toString());
-    });
-  }
-
-  showEmoji(){
-
-  }
-
-  kmsg(e:KeyboardEvent){
-    if(e.key == "Enter") this.sendMessage()
-  }
-
-  sendMessage(){
-    if (this.message?.trim() != ""){
-      let msg = new ChatMessage()
-      msg.message = this.message
-      msg.senderId = this.currentUser
-      
-      this.connection.invoke("SendMessage", this.selectedUser?.username, msg).catch(function (err) {
+  isOnline(user: string | object) {
+    if (typeof(user) == "string"){
+      this.connection.invoke("IsOnline", user).catch(function (err) {
         return console.error(err.toString());
       });
+    }else{
 
-      this.recentChats?.find(k => k.username == this.selectedUser?.username)?.chats?.push(msg)
-      this.message = undefined
     }
   }
 
+  /**
+   * Pending unification
+   * @param msgIds 
+   */
+  sendReadReceipt(msgIds: number[]){
+    if(msgIds.length > 0){
+      this.connection.invoke("SendReadReceipt", msgIds).catch(function (err) {
+        return console.error(err.toString());
+      });
+    }
+  }
+
+  /**
+   * Sends a message to the desired receipient
+   * @param message 
+   */
+  sendMessage(message:string){
+    if (message?.trim() != ""){
+      let msg = new ChatMessage()
+      msg.message = message
+      msg.senderId = this.currentUser?.username
+      msg.sentTime = new Date().toISOString()
+
+      this.connection!.invoke("SendMessage", this.selectedHead?.username, msg).catch(function (err) {
+        return console.error(err.toString());
+      });
+
+      msg.isSent = true
+      let rc = this.recentChats?.find(k => k.username == this.selectedHead?.username)
+      rc!.chats?.push(msg)
+      rc!.lastMessage = msg.message
+    }
+  }
+
+  /**
+   * Pending unification
+   * @param msgIds 
+   */
+  isRead(msgIds?: number[] | object){
+    if(msgIds instanceof Array && typeof(msgIds![0]) == "number"){
+        this.connection.invoke("IsRead", msgIds).catch(function (err) {
+        return console.error(err.toString());
+      });
+    }else{
+      let read = msgIds as any[]
+      read.forEach((m, i) =>{
+        let l = this.recentChats?.find(p => p.username == m.recepientId)?.chats?.find(c => c.id == m.id)
+        l!.isRead = true
+      })
+    }
+  }
+
+  /**
+   * pending unification
+   * @param message 
+   */
   deliveryReport(message:ChatMessage) {
-    console.log("delivered", message)
+    console.log("message has been delivered", message)
     let ch = this.recentChats?.find(k => k.senderId == message.senderId)?.chats?.find(r => r.ref == message.ref);
     ch!.id = message.id
+    ch!.isDelivered = true
   }
 
-  readReceipt(message:ChatMessage) {
-    console.log("chatRead", message)
-    let ch = this.recentChats?.find(k => k.senderId == message.senderId)?.chats?.find(r => r.id == message.id);
-    ch!.isRead = message.isRead
-    ch!.readTime = message.readTime
-  }
+  // readReceipt(message:ChatMessage) {
+  //   console.log("chatRead", message)
+  //   let ch = this.recentChats?.find(k => k.senderId == message.senderId)?.chats?.find(r => r.id == message.id);
+  //   ch!.isRead = message.isRead
+  //   ch!.readTime = message.readTime
+  // }
 
+  /**
+   * receiver action to accept a message pushed by the server
+   * @param message 
+   */
   receiveMessage(message:ChatMessage) {
     let us = this.recentChats?.find(u => u.username == message.senderId)
     if (us != null){
       this.recentChats?.find(u => u.username == message.senderId)!.chats?.push(message)
+      us.lastMessage = message.message
+
+      if (this.selectedHead?.username != us.username){
+        us.unreadCount!++
+      }
     }else{
       let rc = new RecentChat()
       rc.displayName = message.senderId
@@ -146,6 +229,7 @@ export class AppComponent implements OnInit{
       rc.lastMessage = message.message
       rc.username = message.senderId
       rc.chats = new Array<ChatMessage>()
+      rc.unreadCount = 1
       rc.chats.push(message)
 
       if(!this.recentChats) this.recentChats = new Array<RecentChat>()
@@ -153,6 +237,10 @@ export class AppComponent implements OnInit{
     }
   }
 
+  /**
+   * Loads messages from the server when the user first opens
+   * the chat interface
+   */
   getMessages(){
     this.connection.invoke("LoadMessages").catch(function (err) {
       return console.error(err.toString());
@@ -163,127 +251,28 @@ export class AppComponent implements OnInit{
 
   }
 
+  /**
+   * Starts a socket connection to the server
+   */
   async start() {
       try {
           await this.connection.start();
           console.log("SignalR Connected.");
-          setTimeout(() => {
-            this.getMessages()
-          }, 1000);
+
+          // we wait for some few seconds so the socket is initialized properly
+          setTimeout(() => this.getMessages(), 1000);
       } catch (err) {
           setTimeout(this.start, 5000);
       }
   };
-
-  // webaudio_tooling_obj() {
-
-  //   var audioContext = new AudioContext();
-
-  //   console.log("audio is starting up ...");
-
-  //   var BUFF_SIZE = 16384;
-
-  //   var audioInput = null,
-  //       microphone_stream = null,
-  //       gain_node = null,
-  //       script_processor_node = null,
-  //       script_processor_fft_node = null,
-  //       analyserNode = null;
-
-  //   if (!navigator.getUserMedia)
-  //           navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
-  //                         navigator.mozGetUserMedia || navigator.msGetUserMedia;
-
-  //   if (navigator.getUserMedia){
-
-  //       navigator.getUserMedia({audio:true}, 
-  //         function(stream:any) {
-  //             start_microphone(stream);
-  //         },
-  //         function(e) {
-  //           alert('Error capturing audio.');
-  //         }
-  //       );
-
-  //   } else { alert('getUserMedia not supported in this browser.'); }
-
-  //   // ---
-
-  //   function show_some_data(given_typed_array:any, num_row_to_display:any, label:any) {
-
-  //       var size_buffer = given_typed_array.length;
-  //       var index = 0;
-  //       var max_index = num_row_to_display;
-
-  //       console.log("__________ " + label);
-
-  //       for (; index < max_index && index < size_buffer; index += 1) {
-
-  //           console.log(given_typed_array[index]);
-  //       }
-  //   }
-
-  //   function process_microphone_buffer(event:any) { // invoked by event loop
-
-  //       var i, N, inp, microphone_output_buffer;
-
-  //       microphone_output_buffer = event.inputBuffer.getChannelData(0); // just mono - 1 channel for now
-
-  //       // microphone_output_buffer  <-- this buffer contains current gulp of data size BUFF_SIZE
-
-  //       show_some_data(microphone_output_buffer, 5, "from getChannelData");
-  //   }
-
-  //   function start_microphone(stream:any){
-
-  //     gain_node = audioContext.createGain();
-  //     gain_node.connect( audioContext.destination );
-
-  //     microphone_stream = audioContext.createMediaStreamSource(stream);
-  //     microphone_stream.connect(gain_node); 
-
-  //     script_processor_node = audioContext.createScriptProcessor(BUFF_SIZE, 1, 1);
-  //     script_processor_node.onaudioprocess = process_microphone_buffer;
-
-  //     microphone_stream.connect(script_processor_node);
-
-  //     // --- enable volume control for output speakers
-          
-  //     document.getElementById('volume').addEventListener('change', function() {
-
-  //         var curr_volume = this.value;
-  //         gain_node.gain.value = curr_volume;
-
-  //         console.log("curr_volume ", curr_volume);
-  //     });
-
-  //     // --- setup FFT
-
-  //     script_processor_fft_node = audioContext.createScriptProcessor(2048, 1, 1);
-  //     script_processor_fft_node.connect(gain_node);
-
-  //     analyserNode = audioContext.createAnalyser();
-  //     analyserNode.smoothingTimeConstant = 0;
-  //     analyserNode.fftSize = 2048;
-
-  //     microphone_stream.connect(analyserNode);
-
-  //     analyserNode.connect(script_processor_fft_node);
-
-  //     script_processor_fft_node.onaudioprocess = function() {
-
-  //       // get the average for the first channel
-  //       var array = new Uint8Array(analyserNode.frequencyBinCount);
-  //       analyserNode.getByteFrequencyData(array);
-
-  //       // draw the spectrogram
-  //       if (microphone_stream.playbackState == microphone_stream.PLAYING_STATE) {
-
-  //           show_some_data(array, 5, "from fft");
-  //       }
-  //     };
-  //   }
-
-  // };  
-  //webaudio_tooling_obj = function()
 }
+
+// We need an async function in order to use await, but we want this code to run immediately,
+// so we use an "immediately-executed async function"
+// (async () => {
+//   try {
+//       await connection.start();
+//   } catch (e) {
+//       console.error(e.toString());
+//   }
+// })();

@@ -8,6 +8,10 @@ import { FormsModule } from '@angular/forms';
 import { ChatMessageComponent } from './components/chat-message/chat-message.component';
 import { ModalDialogComponent } from './components/modal-dialog/modal-dialog.component';
 import { DialogComponent } from './components/dialog/dialog.component';
+import { MeetingComponent } from './components/meeting/meeting.component';
+import { OpenWareComponent } from './components/open-ware/open-ware.component';
+import { StoreModule } from '@ngrx/store';
+import { UserProfileReducer } from './store/reducers/profile.reducer';
 
 @NgModule({
   declarations: [
@@ -15,12 +19,17 @@ import { DialogComponent } from './components/dialog/dialog.component';
     ChatHeadComponent,
     ChatMessageComponent,
     ModalDialogComponent,
-    DialogComponent
+    DialogComponent,
+    MeetingComponent,
+    OpenWareComponent
   ],
   imports: [
     BrowserModule,
     AppRoutingModule,
-    FormsModule
+    FormsModule,
+    StoreModule.forRoot({
+      profile: UserProfileReducer
+    })
   ],
   providers: [],
   bootstrap: [AppComponent]
