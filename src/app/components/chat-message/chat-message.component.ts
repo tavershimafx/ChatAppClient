@@ -10,7 +10,6 @@ import { ChatMessage } from 'src/app/models/chat-models';
 })
 export class ChatMessageComponent implements OnInit{
   @Input() message?: ChatMessage
-  //@Input() usr?: string
   currentUser?:UserProfile
   isMe = true
 

@@ -1,6 +1,8 @@
-import { EOF } from '@angular/compiler';
 import * as signalR from '@microsoft/signalr'
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Store } from '@ngrx/store';
+import { ICallRequest, UserProfile } from 'src/app/models/app.models';
+import { Observable, Subscription } from 'rxjs';
 
 @Component({
   selector: 'meeting',
@@ -8,7 +10,10 @@ import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, 
   styleUrls: ['./meeting.component.css']
 })
 export class MeetingComponent implements OnInit, OnDestroy {
-  @Input() user: string = "sm"
+  @Input() callData?: ICallRequest
+  @Input() isCaller?: boolean
+  @Input() connection!: signalR.HubConnection
+
   @ViewChild("audioEl", { static: true }) audioEl!: ElementRef
   @ViewChild("playBtn", { static: true }) playBtn!: ElementRef
   @ViewChild("vol", { static: true }) vol!: ElementRef
@@ -17,40 +22,135 @@ export class MeetingComponent implements OnInit, OnDestroy {
   @ViewChild("fileInput", { static: false }) fileInput!: ElementRef
   @Input() endMeet?: boolean
   @Output() endMeetChange: EventEmitter<boolean> = new EventEmitter()
-  @Output() sendChunk: EventEmitter<any> = new EventEmitter()
+  @Output() sendStream: EventEmitter<any> = new EventEmitter()
 
-  isStreaming = false
+  //currentUser?:UserProfile
+  /**
+   * Sets the call cancel state so observers can take action such as
+   * stop calling or terminates the call immediately
+   */
+  cancelCall = false
+
+  /**
+   * A flag to indicate if a call was placed and the ringing tone is
+   * being played
+   */
+  isRinging = false
+
+  /**
+   * Indicates if the call has been connected 
+   */
+  callConnected = false
+
+  /**
+   * The connection id of the caller or receiving end. This connectionId
+   * could facilitate the server performing quick action without much
+   * data overload if need be
+   */
+  callerConnection?: string
+
+  /**
+   * The system operates just a single audio context so we can track
+   * media and minimize overhead. Most times, when an agent wants to
+   * utilize the audio context, it disconnects the context from any
+   * destination and passes a new destination to it.
+   */
+  audioCtx?:AudioContext = new AudioContext(); 
+
+  /**
+   * An audio source node which data can be loaded into it dynamically.
+   */
+  source?: AudioBufferSourceNode
+  
+  audioBuffer?: AudioBuffer
+
+  /**
+   * A temporary array in which when data is received from the server, persisted
+   * for a while before transferring it to the @member audioBuffer
+   */
+  arrayBuffer?: Float32Array
+
   audioDialog = false
-  //audioFileBuffer?: any
-  audioFileBuffer?: ArrayBuffer
   fileName?: string
 
-  // Create AudioContext and buffer source
-  audioCtx?:AudioContext; 
+  clientEnded?: Subscription
 
-  aContext = new AudioContext()
-  track?: MediaElementAudioSourceNode
-  arrayBuffer?: ArrayBuffer
-  source?: AudioBufferSourceNode
+  // streamConnection = new signalR.HubConnectionBuilder()
+  // .withUrl("https://localhost:7225/streamHub")
+  // .build();
 
-  gainNode?: any
-  panner?: any
-  pannerOptions = { pan: 0 }
-
-
-  constructor(){
+  constructor(private store: Store<{profile: UserProfile}>){
+    // this.store.select(k =>{
+    //   if(k.profile != undefined){
+    //     this.currentUser = k.profile;
+    //     }
+    // }).subscribe();
   }
 
   ngOnInit(): void {
-   //this.init()
-   this.startConnection();
+
+   //this.startConnection();
+  //  this.connection.on("PlaceCall", (data) => this.placeCall(data));
+  //  this.connection.on("CallDataReceived", (data) => this.callDataReceived(data));
+  //  this.connection.onclose(() => this.haltActivities());
+   
+  // if the calling user ended the call on his own side, the server
+  // sends the object with end = true to inform the receiver to end the call
+  // so we need to wait and see if that property changes at any given time
+  this.clientEnded = new Observable(subscriber =>{
+    if (this.callData?.end){
+      subscriber.next()
+      subscriber.complete()
+      subscriber.unsubscribe()
+    }
+  }).subscribe({
+    next: (e) =>{
+      this.haltActivities()
+    }
+  })
+
+   // the dialog takes 600ms to finish animating to we need to wait for it to
+   // fully open before we start any activity. Actually lets give some more 
+   // breating space to 800ms
+    setTimeout(() => {
+      if (this.callData?.isCaller == true){
+        // place call immediately when the dialog launches
+        this.placeCall()
+       }else{
+        // probably someone is caller if I'm not the caller
+        this.isRinging = true
+        this.callRinging()
+       }
+    }, 800);
+   
   }
 
   ngOnDestroy(): void {
-   this.audioCtx = undefined
+    if (this.audioCtx){
+      this.audioCtx?.destination.disconnect()
+      this.audioCtx = undefined
+    }
+  }
+
+  // async startConnection() {
+  //   try {
+  //       await this.streamConnection.start();
+  //   } catch (e:any) {
+  //       console.error(e.toString());
+  //   }
+  // }
+
+  haltActivities(){
+    this.cancelCall = true
+    this.callRinging(true)
   }
 
   endCall(){
+    if (this.isRinging) {
+      this.callRinging(false)
+    }
+
+    this.cancelCall = true
     this.endMeetChange.emit(true)
   }
   
@@ -58,314 +158,181 @@ export class MeetingComponent implements OnInit, OnDestroy {
     this.audioDialog = close
   }
   
-  openSelect(){
-    this.fileInput.nativeElement.click()
-  }
-
-  selectFile(){
-    let files = this.fileInput.nativeElement.files
-    let reader = new FileReader()
-    reader.onload = (e) =>{
-      this.audioFileBuffer =  new Uint8Array(reader.result as ArrayBuffer)
-    }
-
-    this.fileName = files[0].name
-    reader.readAsArrayBuffer(files[0])
-  }
-
-
-  async startStream(){
-    // const response = await fetch("/assets/knock_0b1ea.ogg");
-    // let fer = await response.arrayBuffer();
-    
-    // let adata = await this.aContext.decodeAudioData(fer)
-    // let ds = adata.getChannelData(1)
-    //this.sendChunk.emit(this.audioFileBuffer)
-    
-    this.uploadBtn()
-    //console.log(this.audioFileBuffer)
-  }
-
   async createSource(){
-    this.source = this.aContext.createBufferSource();
+    this.audioCtx = new AudioContext()
+    this.source = this.audioCtx.createBufferSource();
     try {
-      //const response = await fetch("https://s3-us-west-2.amazonaws.com/s.cdpn.io/858/outfoxing.mp3");
-      const response = await fetch("/assets/acoustic-guitar-short-intro-ish-live-recording-163329.mp3");
-      this.arrayBuffer = await response.arrayBuffer();
-      
-      this.source.buffer = await this.aContext.decodeAudioData(this.arrayBuffer);
+      this.audioBuffer = new AudioBuffer({ 
+        length: this.arrayBuffer?.length!, 
+        sampleRate: this.audioCtx.sampleRate, 
+        numberOfChannels: 1 })
+      this.audioBuffer.copyToChannel(this.arrayBuffer!, 1, 0)
+      this.source.buffer = this.audioBuffer;
+
+      this.source.connect(this.audioCtx.destination)
+      //let l = this.source.buffer?.duration! * 1000;
+
+      //let abf = new ArrayBuffer(444);
+      //this.source.buffer = await this.audioCtx.decodeAudioData(abf);
     } catch (err:any) {
-      console.error(`Unable to fetch the audio file: ${name} Error: ${err.message}`,);
-    }
-
-    this.source.connect(this.aContext.destination)
-    let l = this.source.buffer?.duration! * 1000;
-
-    try {
-      const response = await fetch("/assets/dark-engine-logo-141942.mp3");
-      this.arrayBuffer = await response.arrayBuffer();
-      
-    } catch (err:any) {
-      console.error(`Unable to fetch the audio file: ${name} Error: ${err.message}`,);
-    }
-
-   setTimeout(async () => {
-      this.source!.disconnect(this.aContext.destination)
-
-      // let a = await this.aContext.decodeAudioData(this.arrayBuffer!)
-      // let ar = a.getChannelData(1)
-
-      this.source = this.aContext.createBufferSource();
-      this.source!.buffer = await this.aContext.decodeAudioData(this.arrayBuffer!)
-      this.source!.connect(this.aContext.destination)
-      this.source.start()
-    }, l);
-    
-
-    // this.track = this.aContext.createMediaElementSource(this.audioEl.nativeElement)
-    // this.gainNode = this.aContext.createGain()
-    // this.panner = new StereoPannerNode(this.aContext, this.pannerOptions)
-    //this.source.connect(this.gainNode).connect(this.panner).connect(this.aContext.destination)
-  }
-
-  async playPause(){
-    this.createSource()
-    if (this.aContext.state === "suspended"){
-      await this.aContext.resume()
-    }
-
-    if (this.playBtn.nativeElement.dataset.playing === "false"){
-      //this.audioEl.nativeElement.play();
-      this.playBtn.nativeElement.dataset.playing = "true"
-
-      this.source?.start()
-    }else if (this.playBtn.nativeElement.dataset.playing === "true"){
-      //this.audioEl.nativeElement.pause()
-      this.playBtn.nativeElement.dataset.playing = "false"
-
-      this.source?.stop()
+      console.error(`Unable to create audio source: ${name} Error: ${err.message}`,);
     }
   }
 
-  setStop(){
-    this.audioEl.nativeElement.dataset.playing = false
+  callDataReceived(data:any){
+    console.log("received audio data", data)
   }
 
-  volChange(){
-    this.gainNode.gain.value = this.vol.nativeElement.value
-  }
-
-  panChange(){
-    this.panner.pan.value = this.pan.nativeElement.value
-  }
-
-  // async webaudio_tooling_obj() {
-
-  //   var audioContext = new AudioContext();
-
-  //   console.log("audio is starting up ...");
-
-  //   var BUFF_SIZE = 1024//16384;
-
-  //   var audioInput = null,
-  //       microphone_stream:any = null,
-  //       gain_node:any = null,
-  //       script_processor_node = null,
-  //       script_processor_fft_node = null,
-  //       analyserNode:any = null;
-
-  //   // if (!navigator.mediaDevices.getUserMedia())
-  //   //         navigator.mediaDevices = navigator.getUserMedia || navigator.webkitGetUserMedia ||
-  //   //                       navigator.mozGetUserMedia || navigator.msGetUserMedia;
-
-  //   if (await navigator.mediaDevices.getUserMedia({audio:true, video: false})){
-
-  //     console.log("navigator is present")
-  //     start_microphone(await navigator.mediaDevices.getUserMedia({audio:true, video: false}))
-  //   } else { alert('getUserMedia not supported in this browser.'); }
-
-  //   // ---
-
-  //   function show_some_data(given_typed_array:any, num_row_to_display:any, label:any) {
-
-  //       var size_buffer = given_typed_array.length;
-  //       var index = 0;
-  //       var max_index = num_row_to_display;
-
-  //       console.log("__________ " + label);
-
-  //       for (; index < max_index && index < size_buffer; index += 1) {
-
-  //           console.log(given_typed_array[index]);
-  //       }
-  //   }
-
-  //   function process_microphone_buffer(event:any) { // invoked by event loop
-
-  //       var i, N, inp, microphone_output_buffer;
-
-  //       microphone_output_buffer = event.inputBuffer.getChannelData(0); // just mono - 1 channel for now
-
-  //       // microphone_output_buffer  <-- this buffer contains current gulp of data size BUFF_SIZE
-
-  //       //show_some_data(microphone_output_buffer, 5, "from getChannelData");
-  //   }
-
-  //   function start_microphone(stream:any){
-
-  //     gain_node = audioContext.createGain();
-  //     gain_node.connect( audioContext.destination );
-
-  //     //var ms:MediaStreamAudioSourceNode = audioContext.createMediaStreamSource(stream);
-  //     //ms.connect()
-  //     microphone_stream = audioContext.createMediaStreamSource(stream);
-  //     microphone_stream.connect(gain_node); 
-
-  //     script_processor_node = audioContext.createScriptProcessor(BUFF_SIZE, 1, 1);
-  //     script_processor_node.onaudioprocess = process_microphone_buffer;
-
-  //     microphone_stream.connect(script_processor_node);
-
-  //     // --- enable volume control for output speakers
-          
-  //     // document.getElementById('volume').addEventListener('change', function() {
-
-  //     //     var curr_volume = this.value;
-  //     //     gain_node.gain.value = curr_volume;
-
-  //     //     console.log("curr_volume ", curr_volume);
-  //     // });
-
-  //     // --- setup FFT
-
-  //     script_processor_fft_node = audioContext.createScriptProcessor(2048, 1, 1);
-  //     script_processor_fft_node.connect(gain_node);
-
-  //     analyserNode = audioContext.createAnalyser();
-  //     analyserNode.smoothingTimeConstant = 0;
-  //     analyserNode.fftSize = 2048;
-
-  //     microphone_stream.connect(analyserNode);
-
-  //     analyserNode.connect(script_processor_fft_node);
-
-  //     script_processor_fft_node.onaudioprocess = function() {
-
-  //       // get the average for the first channel
-  //       var array = new Uint8Array(analyserNode.frequencyBinCount);
-  //       analyserNode.getByteFrequencyData(array);
-
-  //       // draw the spectrogram
-  //       if (microphone_stream.playbackState == microphone_stream.PLAYING_STATE) {
-
-  //           //show_some_data(array, 5, "from fft");
-  //       }
-  //     };
-  //   }
-
-  // };  
- 
-
-
-  async init() {
-    this.audioCtx = new AudioContext();
-    const source = this.audioCtx.createBufferSource();
-
-    // Create a ScriptProcessorNode with a bufferSize of 4096 and
-    // a single input and output channel
-    const scriptNode = this.audioCtx.createScriptProcessor(4096, 1, 1);
-
-    // Load in an audio track using fetch() and decodeAudioData()
-    try {
-      //const response = await fetch("viper.ogg");
-      const response = await fetch("https://s3-us-west-2.amazonaws.com/s.cdpn.io/858/outfoxing.mp3");
-      const arrayBuffer = await response.arrayBuffer();
-      source.buffer = await this.audioCtx.decodeAudioData(arrayBuffer);
-    } catch (err:any) {
-      console.error(
-        `Unable to fetch the audio file: ${name} Error: ${err.message}`,
-      );
-    }
-
-    // Give the node a function to process audio events
-    scriptNode.addEventListener("audioprocess", (audioProcessingEvent:AudioProcessingEvent) => {
-      // The input buffer is the song we loaded earlier
-      let inputBuffer = audioProcessingEvent.inputBuffer;
-
-      // The output buffer contains the samples that will be modified and played
-      let outputBuffer = audioProcessingEvent.outputBuffer;
-
-      // Loop through the output channels (in this case there is only one)
-      for (let channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
-        let inputData = inputBuffer.getChannelData(channel);
-        let outputData = outputBuffer.getChannelData(channel);
-
-        // Loop through the 4096 samples
-        for (let sample = 0; sample < inputBuffer.length; sample++) {
-          // make output equal to the same as the input
-          outputData[sample] = inputData[sample];
-
-          // add noise to each output sample
-          //outputData[sample] += (Math.random() * 2 - 1) * 0.1;
-        }
+  /**
+   * plays a sound informing the user of an incoming call. If the method is called
+   * with the @param stop to be true, it assumes the call tune was already
+   * playing and you probably wants to stop it
+   * @param stop determines whether or not to stop the calling sound
+   */
+  async callRinging(stop = false){
+    this.source = this.audioCtx!.createBufferSource();
+    if (!stop){
+      try {
+        const response = await fetch("/assets/ringing.mp3");
+        let bfr = await response.arrayBuffer();
+        
+        this.source!.buffer = await this.audioCtx!.decodeAudioData(bfr);
+      } catch (err:any) {
+        console.error(`Unable get call media: ${name} Error: ${err.message}`,);
       }
-    });
 
-    source.connect(scriptNode);
-    scriptNode.connect(this.audioCtx.destination);
-    source.start();
-
-    // When the buffer source stops playing, disconnect everything
-    source.addEventListener("ended", () => {
-      source.disconnect(scriptNode);
-      scriptNode.disconnect(this.audioCtx?.destination!);
-    });
-  }
-
-
-  streamConnection = new signalR.HubConnectionBuilder()
-  .withUrl("https://localhost:7225/streamHub")
-  .build();
-
-  async startConnection() {
-    try {
-        await this.streamConnection.start();
-    } catch (e:any) {
-        console.error(e.toString());
+      this.audioCtx!.resume()
+      this.source.loop = true
+      this.source.connect(this.audioCtx!.destination)
+      this.source.start()
+    }else{
+      this.source.stop();
+      this.source.disconnect(this.audioCtx!.destination)
     }
   }
 
-  streamBtn(){
-    try {
-    this.streamConnection.stream("Counter", 10, 500)
-          .subscribe({
-              next: (item) => {
-                  console.log(item);
-              },
-              complete: () => {
-                console.log("Stream completed");
-              },
-              error: (err) => {
-                  console.log(err)
-              },
-          });
-    } catch (e:any) {
-      console.error(e.toString());
+  /**
+   * Places a call to the user who was passed in when the dialog launches
+   * the user is usually the user opened and displayed in the chat interface.
+   * The call is being placed for 120 secs and thereafter quits calling, then
+   * sends a quit signal to the server to quit the call
+   */
+  async placeCall(){
+    if (this.callData?.isCaller){
+      let ctx= new AudioContext()
+      let src = ctx.createBufferSource();
+
+      try {
+        const response = await fetch("/assets/phone-calling.mp3");
+        let bfr = await response.arrayBuffer();
+        
+        src.buffer = await ctx.decodeAudioData(bfr);
+      } catch (err:any) {
+        console.error(`Unable get call media: ${name} Error: ${err.message}`,);
+      }
+      src.loop = true
+      src.connect(ctx.destination)
+      src.start()
+
+      var iteration = 0;
+      const intervalHandle = setInterval(() => {
+          iteration++;
+          
+          if (this.cancelCall){
+            clearInterval(intervalHandle);
+            src.stop()
+            src.disconnect(ctx.destination)
+            console.log("call cancelled")
+            this.sendStream.emit({data: this.callData, end: true});
+            return
+          }
+
+          // stop calling if connected
+          if (this.callConnected){
+            console.log("call connected")
+            clearInterval(intervalHandle);
+            src.stop()
+            src.disconnect(ctx.destination)
+            this.sendStream.emit({data: this.callData, end: true});
+            return
+          }
+
+          console.log("emitting iteration ", iteration)
+          this.sendStream.emit({data: this.callData, end: false});
+          if (iteration === 120) {
+              src.stop()
+              src.disconnect(ctx.destination)
+              console.log("iteration done")
+              clearInterval(intervalHandle);
+              this.sendStream.emit({data: this.callData, end: true});
+          }
+      }, 500);
+    }else{
+      this.callConnected = true
+      this.startSetupCall()
     }
   }
 
-  async uploadBtn(){
-    const subject = new signalR.Subject();
-    await this.streamConnection.send("UploadStream", subject);
+  // async placeCall(data?:any){
+  //   "Meeting component::A user is calling"
+  // }
 
-    let content = new Uint8Array(this.audioFileBuffer!, 0, this.audioFileBuffer?.byteLength)
-    const c_size = 3000
-    for (let i = 0; i < content.length; i+=c_size) {
-      let offset = i + c_size;
-      let chunk = content.subarray(i, offset)
-      console.log(chunk)
-      subject.next(chunk);
-    }
-    subject.complete();
+  // async placeCall(data?:any){
+  //   if(this.callData?.isCaller){
+
+  //     let ctx = new AudioContext()
+  //     let src = ctx.createBufferSource();
+
+  //     try {
+  //       const response = await fetch("/assets/phone-calling.mp3");
+  //       let bfr = await response.arrayBuffer();
+        
+  //       src.buffer = await ctx.decodeAudioData(bfr);
+  //     } catch (err:any) {
+  //       console.error(`Unable get call media: ${name} Error: ${err.message}`,);
+  //     }
+  //     src.loop = true
+  //     src.connect(ctx.destination)
+  //     src.start()
+
+  //     const subject = new signalR.Subject();
+  //     await this.streamConnection.send("PlaceCall", subject);
+  //     // 120 iterations * 500ms = 20s
+  //     var iteration = 0;
+  //     const intervalHandle = setInterval(() => {
+  //       iteration++;
+  //       if (this.cancelCall){
+  //         clearInterval(intervalHandle);
+  //         src.stop()
+  //         subject.complete();
+  //       }
+
+  //       console.log("calling another user", iteration, this.callData)
+  //       subject.next(this.callData?.receiverId);
+
+  //       // stop calling if connected
+  //       if (this.callConnected){
+  //         clearInterval(intervalHandle);
+  //         src.stop()
+  //         subject.complete();
+  //       }
+
+  //       if (iteration === 120) {
+  //           src.stop()
+  //           clearInterval(intervalHandle);
+  //           subject.complete();
+  //       }
+  //     }, 500);
+
+  //     subject.complete();
+  //   }else{
+  //     this.callConnected = true
+  //     this.startSetupCall()
+  //   }
+  // }
+
+  startSetupCall(){
+    this.createSource()
+    this.callRinging(true);
   }
 }

@@ -28,9 +28,8 @@
    </div>
   </dialog-box>
   
-
-<!-- <modal-dialog *ngIf="callDialog" size="lg"> -->
-  <modal-dialog *ngIf="true" size="lg">
-    <meeting (endMeetChange)="newCall(false)" (sendChunk)="sendData($event)"></meeting>
+<modal-dialog *ngIf="callDialog" size="lg">
+  <!-- <modal-dialog *ngIf="true" size="lg"> -->
+    <meeting (endMeetChange)="newCall(false)" (sendStream)="streamAudio($event)" [callData]="callingData"></meeting>
 </modal-dialog>
 </div>

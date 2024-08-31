@@ -1,7 +1,5 @@
 import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
-import { Store } from '@ngrx/store';
-import { UserProfile } from 'src/app/models/app.models';
-import { ChatMessage, RecentChat } from 'src/app/models/chat-models';
+import { RecentChat } from 'src/app/models/chat-models';
 
 @Component({
   selector: 'open-ware',

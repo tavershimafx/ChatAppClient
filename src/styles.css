@@ -70,6 +70,10 @@ i.fa:hover{
     border-radius: 25px;
 }
 
+.btn.rounded{
+    border-radius: 100%;
+}
+
 .btn-sm{
     padding: 8px 25px;
 }

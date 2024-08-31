@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import * as signalR from '@microsoft/signalr'
 import { ChatMessage, RecentChat } from './models/chat-models';
 import { Store } from '@ngrx/store';
-import { UserProfile } from './models/app.models';
+import { ICallRequest, UserProfile } from './models/app.models';
 import { userGlobal } from './store/actions/profile.action';
 
 
@@ -18,8 +18,12 @@ export class AppComponent implements OnInit{
   recentChats?: RecentChat[]
   selectedHead?: RecentChat
   currentUser?: UserProfile
+  callingData?: ICallRequest
+
   chatDialog = false
   callDialog = false
+  //inComingDialog = false
+  callSubject?: signalR.Subject<any>
 
   connection:signalR.HubConnection;
   constructor(private store:Store){
@@ -31,13 +35,14 @@ export class AppComponent implements OnInit{
 
   ngOnInit(): void {
     // Start the connection.
-      //this.start();
+      this.start();
       this.connection.on("LoadMessages", (u, k) => this.loadMessages(u, k));
       this.connection.on("ChatMessage",  (m) => this.receiveMessage(m));
       this.connection.on("IsOnline", (m) => this.isOnline(m));
       this.connection.on("IsUser",  (d) => this.isUser(d));
       this.connection.on("IsRead",  (d) => this.isRead(d));
       this.connection.on("DeliveryReport",  (d) => this.deliveryReport(d));
+      this.connection.on("PlaceCall", (data) => this.placeCall(data));
       
       this.connection.onclose((e) => this.connectionClosing());
       this.connection.onreconnected((e) => this.getMessages());
@@ -49,28 +54,6 @@ export class AppComponent implements OnInit{
     }
     
     this.chatDialog = visible
-  }
-
-  sleep(ms:any) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-  
-  async sendData(data:Uint8Array) {
-    console.log("sending byte data...")
-
-    for (let index = 0; index < data.length; index+=1000) {
-      const chunk = data.slice(index, 1000);
-      this.connection.invoke("SendByteData", chunk).catch(function (err) {
-        return console.error(err.toString());
-      });
-
-      //this.sleep(2000).then(() => { console.log('data sent!'); });
-    }
-    
-  }
-
-  newCall(visible:boolean) {
-    this.callDialog = visible
   }
 
   kUsr(e:KeyboardEvent){
@@ -136,6 +119,48 @@ export class AppComponent implements OnInit{
     }else{
 
     }
+  }
+
+  async newCall(visible:boolean) {
+    this.callingData = { 
+      receiverId: this.selectedHead?.username!,
+      isCaller: true,
+      connectionId: undefined,
+      end: false
+    }
+    this.callDialog = visible
+  }
+
+  
+  async streamAudio(obj: { data:any, end:boolean }){
+    if (this.callSubject == undefined){
+      this.callSubject = new signalR.Subject();
+    }
+
+    await this.connection.send("PlaceCall", this.callSubject);
+    console.log("streaming to server", obj.data)
+    this.callSubject.next(obj.data);
+
+    if (obj.end){
+      this.callSubject.complete()
+      return;
+    }
+  }
+
+  /**
+   * 
+   * @param id Id of the caller
+   */
+  placeCall(data: any){
+    console.log("A call has been received", data)
+    this.callingData = { 
+      receiverId: data.receiverId,
+      isCaller: false,
+      connectionId: data.connectionId,
+      end: data.end
+    }
+    
+    this.callDialog = true
   }
 
   /**
