@@ -9,10 +9,12 @@
 }
 
 .dialog-head{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
   background-color: #fff;
   padding: 10px 20px;
-  text-align: right;
 }
 
 .dialog-head p{
@@ -45,7 +47,7 @@
 .new-call-dialog .call-controls .fa,
 .new-call-dialog .call-controls .lni{
   display: inline-block;
-  width: 4%;
+  width: 40px;
   height: 40px;
   border-radius: 100%;
   background-color: #DFEBFF;

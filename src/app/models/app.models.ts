@@ -4,8 +4,10 @@ export class UserProfile{
 }
 
 export interface ICallRequest{ 
+    //caller: string 
     receiverId: string 
     connectionId?: string
+    id: number
     isCaller: boolean 
-    end: boolean 
+    //end: boolean 
 }

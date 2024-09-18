@@ -286,7 +286,7 @@ FakesAssemblies/
 node_modules/
 .angular
 dist/
-
+src/assets/music/
 # Visual Studio 6 build log
 *.plg
 

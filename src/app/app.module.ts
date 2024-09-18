@@ -12,10 +12,18 @@ import { MeetingComponent } from './components/meeting/meeting.component';
 import { OpenWareComponent } from './components/open-ware/open-ware.component';
 import { StoreModule } from '@ngrx/store';
 import { UserProfileReducer } from './store/reducers/profile.reducer';
+import { LoginComponent } from './pages/login/login.component';
+import { ChatComponent } from './pages/chat/chat.component';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+import { DictaphoneComponent } from './pages/dictaphone/dictaphone.component';
 
 @NgModule({
   declarations: [
     AppComponent,
+    LoginComponent,
+    ChatComponent,
+    DictaphoneComponent,
     ChatHeadComponent,
     ChatMessageComponent,
     ModalDialogComponent,
@@ -27,6 +35,7 @@ import { UserProfileReducer } from './store/reducers/profile.reducer';
     BrowserModule,
     AppRoutingModule,
     FormsModule,
+    HttpClientModule,
     StoreModule.forRoot({
       profile: UserProfileReducer
     })

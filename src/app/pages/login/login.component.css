@@ -1,0 +1,25 @@
+.login-container{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100%;
+}
+
+.login-form{
+  border: 1px solid #ececec;
+  border-radius: 8px;
+  padding: 80px;
+}
+
+label{
+  display: block;
+  margin-top: 10px;
+}
+
+input{
+  padding: 10px;
+  border: 1px solid #F5F5F5;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-top: 5px;
+}

@@ -1,0 +1,16 @@
+<div class="login-container">
+  <div class="login-form">
+    <form action="" (submit)="login()">
+      <div>
+        <p *ngIf="erMsg" class="danger">{{erMsg}}</p>
+        <label for="email">Email</label>
+        <input type="text" placeholder="Email" [(ngModel)]="email" [ngModelOptions]="{ standalone: true }">
+
+        <label for="password">Password</label>
+        <input type="password" placeholder="Password" [(ngModel)]="password" [ngModelOptions]="{ standalone: true }">
+      </div>
+
+      <button class="btn theme-btn mt-20 pr-20 pl-20" type="submit">Login</button>
+    </form>
+  </div>
+</div>

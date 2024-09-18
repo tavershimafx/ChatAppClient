@@ -1,0 +1,75 @@
+.chat-parent{
+    display: flex;
+    min-height: 100%;
+}
+
+.chat-parent aside {
+  width: 25%;
+  min-height:100%;
+  border-right: 1px solid #D9DCE0;
+}
+
+.chat-clients .utils{
+  display: flex;
+  padding: 20px;
+}
+
+.chat-clients .utils i{
+  color: #707991;
+  font-size: 18px;
+  padding: 10px;
+  margin-right: 10px;
+}
+
+.chat-clients .utils input{
+  width: 100%;
+  outline: none;
+  border: none;
+  background-color: #F5F5F5;
+  padding: 10px;
+  border-radius: 30px;
+}
+
+.chat-parent .open-ware {
+  width: 75%;
+  min-height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.new-chat-dialog, .new-chat-dialog p:first-of-type{
+  padding: 10px;
+}
+
+.new-chat-dialog p:first-of-type{
+  margin: 0;
+  font-family: 'Poppins-Medium';
+  font-size: 16px;
+}
+
+.new-chat-dialog p.err{
+  margin: 20px 0 0 0;
+  font-family: 'Poppins-Medium';
+  font-size: 12px;
+  color: #e92b2b;
+}
+
+.new-chat-dialog label{
+  font-size: 14px;
+  display: block;
+}
+
+.new-chat-dialog input{
+  font-size: 14px;
+  border-radius: 25px;
+  border: 1px solid #8BABD8;
+  outline: none;
+  width: 100%;
+  margin-top: 5px;
+  padding: 10px;
+}
+
+.btn-group{
+  margin-top: 15px;
+  text-align: center;
+}

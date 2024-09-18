@@ -4,7 +4,7 @@ import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, 
 
 @Component({
   selector: 'meeting',
-  templateUrl: './meeting.component.html',
+  template: "meeting.component.html",
   styleUrls: ['./meeting.component.css']
 })
 export class OldMeetingComponent implements OnInit, OnDestroy {

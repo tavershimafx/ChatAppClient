@@ -43,6 +43,14 @@ i.fa:hover{
     animation-fill-mode: forwards;
 }
 
+.theme-color{
+    color: #8BABD8;
+}
+
+.dange{
+    color: #EB5757;
+}
+
 .theme-btn{
     width: max-content;
     font-size: 14px;
@@ -83,9 +91,31 @@ i.fa:hover{
     color: #FFF;
 }
 
+.btn.success{
+    background-color: #21af21;
+    color: #FFF;
+}
+
 .mt-20{
     margin-top: 20px !important;
 }
+
+.mr-10{
+    margin-right: 10px !important;
+}
+
+.ml-10{
+    margin-left: 10px !important;
+}
+
+.pl-20{
+    padding-left: 20px;
+}
+
+.pr-20{
+    padding-right: 20px;
+}
+
 @keyframes scale-icon {
     to{
         transform: scale(1.2, 1.2);
