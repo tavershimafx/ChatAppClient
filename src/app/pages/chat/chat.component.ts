@@ -205,7 +205,7 @@ export class ChatComponent implements OnInit, OnDestroy{
       this.isCalling = false
       this.isRinging = false
       this.callDialog = false
-      //this.closeStreams()
+      this.closeStreams()
       this.connection.send("EndCall", this.callData!.id, false);
       return
     }
@@ -272,8 +272,8 @@ export class ChatComponent implements OnInit, OnDestroy{
 
     // start streaming audio to receiver
     console.log("receipient accepted::::cId ", data.connectionId)
-    //await this.record_audio()
-    await this.uploadBtn();
+    await this.record_audio()
+    //await this.uploadBtn();
   }
 
   buflength = 10
@@ -281,20 +281,21 @@ export class ChatComponent implements OnInit, OnDestroy{
   bPointer = 0
 
   loadSound(data:any){
+    console.log("received chunk ", data)
     this.resetBuffer()
 
-    if (this.chunkBuffer[this.bPointer] != undefined){
-      console.log("setting item ", this.bPointer)
-      this.chunkBuffer[this.bPointer] = this.chunkBuffer[this.bPointer].concat(data)  
-    }else{
-      console.log("current is null", this.bPointer)
-      this.chunkBuffer[this.bPointer] = data
-    }
+    // if (this.chunkBuffer[this.bPointer] != undefined){
+    //   console.log("setting item ", this.bPointer)
+    //   this.chunkBuffer[this.bPointer] = this.chunkBuffer[this.bPointer].concat(data)  
+    // }else{
+    //   console.log("current is null", this.bPointer)
+    //   this.chunkBuffer[this.bPointer] = data
+    // }
 
-    if (this.bPointer == 0){
-      this.bPointer++
-      this.startBuffer(0)
-    }
+    // if (this.bPointer == 0){
+    //   //this.bPointer++
+    //   this.startBuffer(0)
+    // }
   }
 
   private resetBuffer(){
@@ -304,7 +305,6 @@ export class ChatComponent implements OnInit, OnDestroy{
   }
 
   private startBuffer(point:number){
-    //if (this.chunks){
       let tmpBuffer = this.audioCtx?.createBuffer(1, this.chunkBuffer[point].length, this.audioCtx.sampleRate)
       tmpBuffer?.getChannelData(0)?.set(this.chunkBuffer[point], 0)
       
@@ -321,8 +321,6 @@ export class ChatComponent implements OnInit, OnDestroy{
         this.startBuffer(this.bPointer)
         this.bPointer++
       }, l);
-      
-    //}
   }
 
   async uploadBtn(){
@@ -443,21 +441,25 @@ export class ChatComponent implements OnInit, OnDestroy{
     this.createAudioCtx()
     this.mediaRecorder = new MediaRecorder(stream)
     console.log('starting recorder...')
-    this.mediaRecorder.start(100);
+    this.mediaRecorder.start(1000);
 
     let $this = this
     this.mediaRecorder.ondataavailable = function (e) {
-      e.data.arrayBuffer().then((s) =>{
-        let ds = new Float32Array(s, 0, Math.floor(s.byteLength /32) * 32)
+      e.data.arrayBuffer().then((s:any) =>{
+        console.log('byteLength', s.byteLength)
+        let ds = new Float32Array(s, 0, Math.floor(s.byteLength /4))
+        //let dd = Float32Array.from(s, 0, s.byteLength /4)
+        //console.log("dd", ds)
         //let ds = new Float32Array(s, 4, Math.floor(s.byteLength/4) * 4)
         //console.log('conversion success; length', ds.length)
         //console.log('conversion success; byteLength', ds.byteLength)
         //console.log('ds', ds)
         //$this.chunks.push(ds);
-        ds.forEach((v, i) => $this.chunks?.push(v))
+        //ds.forEach((v, i) => $this.chunks?.push(v))
         //$this.chunks = $this.chunks.concat(ds.);
-        //$this.streamAudio(s)
-        //console.log(s)
+        let pp:Array<any> = []
+        ds.forEach((v, i) => pp.push(v))
+        $this.streamAudio(pp)
       })
       
       //$this.chunks.push(e.data);
