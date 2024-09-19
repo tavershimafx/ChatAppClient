@@ -205,7 +205,7 @@ export class ChatComponent implements OnInit, OnDestroy{
       this.isCalling = false
       this.isRinging = false
       this.callDialog = false
-      this.closeStreams()
+      //this.closeStreams()
       this.connection.send("EndCall", this.callData!.id, false);
       return
     }
@@ -249,7 +249,6 @@ export class ChatComponent implements OnInit, OnDestroy{
       this.callDialog = false
       this.disconnectSource()
     }
-
   }
 
   async acceptCall(){
@@ -262,7 +261,7 @@ export class ChatComponent implements OnInit, OnDestroy{
 
     // start streaming audio to caller
     //await this.record_audio()
-    await this.uploadBtn();
+    //await this.uploadBtn();
   }
 
   async callAccepted(data: any){
@@ -277,9 +276,53 @@ export class ChatComponent implements OnInit, OnDestroy{
     await this.uploadBtn();
   }
 
+  buflength = 10
+  chunkBuffer: Array<any> = []
+  bPointer = 0
+
   loadSound(data:any){
-    this.chunks = this.chunks.concat(data)
-    //console.log("received fs", data)
+    this.resetBuffer()
+
+    if (this.chunkBuffer[this.bPointer] != undefined){
+      console.log("setting item ", this.bPointer)
+      this.chunkBuffer[this.bPointer] = this.chunkBuffer[this.bPointer].concat(data)  
+    }else{
+      console.log("current is null", this.bPointer)
+      this.chunkBuffer[this.bPointer] = data
+    }
+
+    if (this.bPointer == 0){
+      this.bPointer++
+      this.startBuffer(0)
+    }
+  }
+
+  private resetBuffer(){
+    if (this.bPointer == this.buflength){
+      this.bPointer = 0
+    }
+  }
+
+  private startBuffer(point:number){
+    //if (this.chunks){
+      let tmpBuffer = this.audioCtx?.createBuffer(1, this.chunkBuffer[point].length, this.audioCtx.sampleRate)
+      tmpBuffer?.getChannelData(0)?.set(this.chunkBuffer[point], 0)
+      
+      this.source!.disconnect(this.audioCtx!.destination)
+      this.source = this.audioCtx!.createBufferSource();
+      this.source!.buffer = tmpBuffer!
+      this.source!.connect(this.audioCtx!.destination)
+      this.source.start()
+
+      let l = this.source.buffer.duration * 1000
+      setTimeout(() => {
+        this.resetBuffer()
+        console.log("incrementing..", this.bPointer)
+        this.startBuffer(this.bPointer)
+        this.bPointer++
+      }, l);
+      
+    //}
   }
 
   async uploadBtn(){
@@ -292,21 +335,30 @@ export class ChatComponent implements OnInit, OnDestroy{
     await this.connection.send("StreamAudio", this.callSubject);
     
     console.log("content.length", content.length)
-    var iteration = 0;
-    const c_size = 50000
+    const c_size = 30000 //30kb
+    var current = 0;
     let pages = Math.ceil(content.length / c_size)
+    console.log(`start stream [${new Date()}]`)
     const intervalHandle = setInterval(() => {
-      let off = iteration + c_size;
-      let chunk = content.subarray(iteration, off)
-      iteration+= c_size;
+      let off = (current  * c_size) + c_size;
+      let chunk = content.subarray(off, off + c_size)
+      current++;
         
         this.callSubject!.next({ id: this.callData?.connectionId, data: chunk});
-        if (iteration >= content.length || (!this.isCalling && !this.isRinging && !this.callConnected)) {
+        if (current >= pages || (!this.isCalling && !this.isRinging && !this.callConnected)) {
+         
+          // TODO
+          // REMOVE
+          console.log(`iteration ${current}; pages ${pages}`)
+          console.log(`end stream [${new Date()}]`)
           console.log("subject is ending")
+          this.endCall()
+
+
           this.callSubject!.complete();
           clearInterval(intervalHandle);
         }
-    }, 200);
+    }, 50);
   }
 
   async streamAudio(data:any){
@@ -323,7 +375,7 @@ export class ChatComponent implements OnInit, OnDestroy{
   }
 
   mediaRecorder?: MediaRecorder
-  chunks: any = []
+  chunks?: Array<any>
   dest?: MediaStreamAudioDestinationNode
   constraints = { audio:true, video: false }
 
@@ -402,7 +454,7 @@ export class ChatComponent implements OnInit, OnDestroy{
         //console.log('conversion success; byteLength', ds.byteLength)
         //console.log('ds', ds)
         //$this.chunks.push(ds);
-        ds.forEach((v, i) => $this.chunks.push(v))
+        ds.forEach((v, i) => $this.chunks?.push(v))
         //$this.chunks = $this.chunks.concat(ds.);
         //$this.streamAudio(s)
         //console.log(s)
@@ -441,7 +493,7 @@ export class ChatComponent implements OnInit, OnDestroy{
     this.callSubject?.complete()
 
     //console.log("collected chunks",  this.chunks)
-    this.playData()
+    //this.playData()
   }
 
   async playData(){
@@ -451,8 +503,8 @@ export class ChatComponent implements OnInit, OnDestroy{
     this.createAudioCtx()
     this.source = this.audioCtx!.createBufferSource();
 
-    let tmpBuffer = this.audioCtx?.createBuffer(1, this.chunks.length, this.audioCtx.sampleRate)
-    tmpBuffer?.getChannelData(0)?.set(this.chunks, 0)
+    let tmpBuffer = this.audioCtx?.createBuffer(1, this.chunks!.length, this.audioCtx.sampleRate)
+    tmpBuffer?.getChannelData(0)?.set(this.chunks!, 0)
 
     this.source!.buffer = tmpBuffer!
     this.source!.connect(this.audioCtx!.destination)
@@ -501,6 +553,7 @@ export class ChatComponent implements OnInit, OnDestroy{
   }
 
   disconnectSource(){
+    this.chunks = undefined
     this.source?.stop()
     //this.source?.disconnect(this.audioCtx!.destination)
     this.audioCtx?.destination.disconnect()
