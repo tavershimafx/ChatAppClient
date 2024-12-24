@@ -7,6 +7,7 @@
     </div>
     <div class="recent-chats">
       <chat-head *ngFor="let head of recentChats" [head]="head" (click)="loadUser(head)"></chat-head>
+      <!-- <audio src="" #audioEl></audio> -->
     </div>
   </aside>
   <div class="open-ware">
@@ -30,7 +31,12 @@
   
 <modal-dialog *ngIf="callDialog" size="lg">
   <!-- <modal-dialog *ngIf="true" size="lg"> -->
-    <meeting (endMeetChange)="endCall()" (receiveCall)="acceptCall()" [callData]="callData" [received]="callConnected"></meeting>
+    <meeting #meetingDiag
+    (sendOffer)="sendOffer($event)"
+    (sendAnswer)="sendAnswer($event)"
+    (sendIce)="sendIce($event)"
+    (endMeetChange)="endCall()"
+     (receiveCall)="acceptCall()" [callData]="callData" [received]="callConnected"></meeting>
 </modal-dialog>
 </div>
 

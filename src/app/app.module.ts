@@ -17,6 +17,7 @@ import { ChatComponent } from './pages/chat/chat.component';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { DictaphoneComponent } from './pages/dictaphone/dictaphone.component';
+import { FakeDataComponent } from './pages/fake-data/fake-data.component';
 
 @NgModule({
   declarations: [
@@ -29,7 +30,9 @@ import { DictaphoneComponent } from './pages/dictaphone/dictaphone.component';
     ModalDialogComponent,
     DialogComponent,
     MeetingComponent,
-    OpenWareComponent
+    OpenWareComponent,
+
+    FakeDataComponent
   ],
   imports: [
     BrowserModule,

@@ -5,7 +5,9 @@
     <p (click)="endCall()"><i class="fa fa-times"></i></p>
   </div>
   <div class="meeting-surface">
-    <img src="/assets/images/wave.webp" alt="">
+    <!-- <img src="/assets/images/wave.webp" alt=""> -->
+    <!-- <video src="" autoplay playsinline  controls #localVideo (loadedmetadata)="onloadedmetadata()"></video> -->
+    <audio autoplay playsinline [muted]="muteAudio" controls #localAudio></audio>
     <!-- <div class="stream-head">
       <span class="timing">1:25</span>
       <div class="media-length">

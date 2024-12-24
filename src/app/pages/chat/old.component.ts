@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import * as signalR from '@microsoft/signalr'
 import { ChatMessage, RecentChat } from '../../models/chat-models';
 import { Store } from '@ngrx/store';
@@ -6,15 +6,14 @@ import { ICallRequest, UserProfile } from '../../models/app.models';
 import { userGlobal } from '../../store/actions/profile.action';
 import { HttpClient } from '@angular/common/http';
 import { BASE_URL } from 'src/app/utilities/constants';
-import { MeetingComponent } from 'src/app/components/meeting/meeting.component';
 
 
 @Component({
-  selector: 'chat',
-  templateUrl: './chat.component.html',
-  styleUrls: ['./chat.component.css']
+  selector: 'chat-p',
+  template: ""
+  
 })
-export class ChatComponent implements OnInit, OnDestroy{
+export class OldChatComponent implements OnInit, OnDestroy{
   q?: string
   sError?: string
   searchUser?: string
@@ -29,10 +28,6 @@ export class ChatComponent implements OnInit, OnDestroy{
   connection:signalR.HubConnection;
 
   @ViewChild("audioEl", {static: true}) audioEl!: ElementRef
-  @ViewChild("meetingDiag", {static: false}) meetingDiag!: MeetingComponent
-  //@Output() vidStream: EventEmitter<any> = new EventEmitter()
-
-
   /**
    * The Id of the last received call as sent by the server
    */
@@ -96,6 +91,7 @@ export class ChatComponent implements OnInit, OnDestroy{
 
   constructor(private store:Store, private httpClient: HttpClient){
 
+    this.start_microphone = this.start_microphone.bind(this)
     // we need to check for autoplay but the feature is experimental
     // so lets just check anyway by manipulating it with type any
     //this.navigatorRef = navigator
@@ -123,10 +119,9 @@ export class ChatComponent implements OnInit, OnDestroy{
       this.connection.on("UpdateCallData", (data) => this.updateCallData(data));
       this.connection.on("clientEndCall", (data) => this.clientEndCall(data));
       this.connection.on("CallAccepted", (data) => this.callAccepted(data));
-      
-      this.connection.on("ReceiveOffer", (data:string) => this.receiveOffer(data));
-      this.connection.on("ReceiveAnswer", (data:string) => this.receiveAnswer(data));
-      this.connection.on("AddIceConnection", (data:string) => this.addIceConnection(data));
+      this.connection.on("LoadSound", (data) => this.loadSound(data));
+      this.connection.on("ReceiveOffer", (data) => this.receiveOffer(data));
+      //this.connection.on("ReceiveAnswer", (data) => this.receiveAnswer(data));
       
       this.connection.onclose((e) => this.connectionClosing());
       this.connection.onreconnected((e) => this.getMessages());
@@ -217,6 +212,7 @@ export class ChatComponent implements OnInit, OnDestroy{
       //this.closeStreams()
       this.connection.send("EndCall", this.callData!.id, false);
 
+      this.mediaRecorder?.stop();
       return
     }
 
@@ -282,43 +278,101 @@ export class ChatComponent implements OnInit, OnDestroy{
 
     // start streaming audio to receiver
     console.log("receipient accepted::::cId ", data.connectionId)
-    //await this.record_audio()
+    await this.record_audio()
     //await this.uploadBtn();
-    this.meetingDiag.startConnection()
   }
 
-  // region RTC Connections
-  sendOffer(offer:any){
-    console.log("sending offer...", offer)
-    this.connection.invoke("SendOffer", this.callData?.connectionId, JSON.stringify(offer)).catch(function (err) {
-      return console.error(err.toString());
-    });
-  }
 
-  sendAnswer(answer:any){
-    this.connection.invoke("SendAnswer", this.callData?.connectionId, JSON.stringify(answer)).catch(function (err) {
-      return console.error(err.toString());
-    });
-  }
+  servers?: RTCConfiguration //= { 
+  //   rtcpMuxPolicy: "require",
+  //   iceTransportPolicy: 
+  //   iceCandidatePoolSize: 5,
+  //   iceServers: [ ],
+  //   bundlePolicy: "max-bundle",
+  //   certificates: [],
+  // }
+  channelConstraints?: RTCDataChannelInit
+  localConnection?: RTCPeerConnection
+  localChannel?: RTCDataChannel
 
-  sendIce(candidate:any){
-    if (candidate){
-      this.connection.invoke("SendIce", this.callData?.connectionId, JSON.stringify(candidate)).catch(function (err) {
-        return console.error(err.toString());
-      });
+  remoteConnection?: RTCPeerConnection
+
+  startConnection(caller: boolean, desc: any){
+    this.localConnection = new RTCPeerConnection(this.servers)
+    this.localChannel = this.localConnection.createDataChannel("callChannel", this.channelConstraints)
+    this.localConnection.onicecandidate = this.createLocalIce
+    this.localConnection.ondatachannel = this.initChannelSettings
+
+    if (caller){
+      this.localConnection.createOffer().then((i) => this.offerCreated(i, true), this.sessionInitFailed)
+    }else{
+      this.localConnection.setRemoteDescription(desc)
+      this.localConnection.createAnswer().then((i) => this.offerCreated(i, false), this.sessionInitFailed)
     }
   }
 
-  receiveOffer(d: string){
-    this.meetingDiag.receiveOffer(d)
+  receiveOffer(desc: any){
+    this.startConnection(false, desc)
   }
 
-  receiveAnswer(d: string){
-    this.meetingDiag.receiveAnswer(d)
+  offerCreated(init:RTCSessionDescriptionInit, caller: boolean){
+    this.localConnection?.setLocalDescription(init)
+    if (caller){
+      this.connection.send("SendOffer", init)
+    }else{
+      this.connection.send("SendAnswer", init)
+    }
   }
 
-  addIceConnection(d: string){
-    this.meetingDiag.addIceConnection(d)
+  sessionInitFailed(error:any){
+    this.traceLog('Failed to initialize RTC session ' + error.toString())
+  }
+
+  initChannelSettings(e: RTCDataChannelEvent){
+    this.initChannelMedia()
+    this.localChannel!.onopen = this.senderChannelChanged
+    this.localChannel!.onclose = this.senderChannelChanged
+    this.localChannel!.onerror = this.channelError
+    this.localChannel!.onmessage = this.messageReceived
+  }
+
+  initChannelMedia(){
+
+  }
+
+  createLocalIce(e:RTCPeerConnectionIceEvent){
+    // send ice to other peer
+  }
+
+  senderChannelChanged(e: Event){
+    switch (this.localChannel?.readyState) {
+      case "connecting":
+        
+        break;
+      case "open":
+        
+        break;
+      case "closing":
+        
+        break;
+      case "closed":
+        
+        break;
+      default:
+        break;
+    }
+  }
+
+  messageReceived(e:MessageEvent){
+
+  }
+
+  connectionClosed(e:Event){
+
+  }
+
+  channelError(e:Event){
+
   }
 
   traceLog(text: string) {
@@ -332,6 +386,255 @@ export class ChatComponent implements OnInit, OnDestroy{
     } else {
       console.log(text);
     }
+  }
+
+  buflength = 10
+  chunkBuffer: Array<any> = []
+  bPointer = 0
+
+  loadSound(data:any){
+    this.resetBuffer()
+
+    console.log("data... ", data)
+    if (this.chunkBuffer[this.bPointer] != undefined){
+      console.log("setting item ", this.bPointer)
+      this.chunkBuffer[this.bPointer] = this.chunkBuffer[this.bPointer].concat(data)  
+    }else{
+      console.log("current is null", this.bPointer)
+      this.chunkBuffer[this.bPointer] = data
+    }
+
+    if (this.bPointer == 0){
+      this.bPointer++
+      this.startBuffer(0)
+    }else{
+      //this.startBuffer(this.bPointer)
+    }
+  }
+
+  private resetBuffer(){
+    if (this.bPointer == this.buflength){
+      this.bPointer = 0
+    }
+  }
+
+  private async startBuffer(point:number){
+    if (this.chunkBuffer[point]){
+      let tmpBuffer = this.audioCtx?.createBuffer(1, this.chunkBuffer[point].length, this.audioCtx.sampleRate)
+      tmpBuffer?.getChannelData(0)?.set(this.chunkBuffer[point], 0)
+      
+      this.audioCtx!.destination.disconnect()
+      this.source!.disconnect()
+      this.source = this.audioCtx!.createBufferSource();
+      this.source!.buffer = tmpBuffer!
+      this.source!.connect(this.audioCtx!.destination)
+      this.source.start()
+
+      let l = this.source.buffer.duration * 1000
+      console.log("current duration...", l)
+      setTimeout(() => {
+        this.resetBuffer()
+        console.log("incrementing..", this.bPointer)
+        this.startBuffer(this.bPointer)
+        this.bPointer++
+      }, l);
+      
+    }
+  }
+
+  async uploadBtn(){
+    const response = await fetch("/assets/music/NOW_THAT_WE_ARE_MARRIED.mp3");
+    let fer = await response.arrayBuffer();
+    let adata = await this.audioCtx!.decodeAudioData(fer)
+
+    //this.chunks = adata.getChannelData(1);
+    let content = adata.getChannelData(1)
+    await this.connection.send("StreamAudio", this.callSubject);
+    
+    console.log("content.length", content.length)
+    const c_size = 30000 //30kb
+    var current = 0;
+    let pages = Math.ceil(content.length / c_size)
+    console.log(`start stream [${new Date()}]`)
+    const intervalHandle = setInterval(() => {
+      let off = (current  * c_size) + c_size;
+      let chunk = content.subarray(off, off + c_size)
+      current++;
+        
+        this.callSubject!.next({ id: this.callData?.connectionId, data: chunk});
+        if (current >= pages || (!this.isCalling && !this.isRinging && !this.callConnected)) {
+         
+          // TODO
+          // REMOVE
+          console.log(`iteration ${current}; pages ${pages}`)
+          console.log(`end stream [${new Date()}]`)
+          console.log("subject is ending")
+          this.endCall()
+
+
+          this.callSubject!.complete();
+          clearInterval(intervalHandle);
+        }
+    }, 50);
+  }
+
+  async streamAudio(data:any){
+    if (this.callSubject == null)
+      this.callSubject = new signalR.Subject();
+    
+    await this.connection.send("StreamAudio", this.callSubject);
+    this.callSubject.next({id: this.callData?.connectionId, data: data});
+    //this.callSubject.complete();
+  }
+
+  mediaRecorder?: MediaRecorder
+  chunks?: Array<any>
+  sks:any = []
+  skk:number[] = []
+  dest?: MediaStreamAudioDestinationNode
+  constraints = { audio:true, video: false }
+
+  // async record_audio() {
+  //   if (navigator.mediaDevices){
+  //     var $this = this;
+  //     navigator.mediaDevices.getUserMedia(this.constraints).then((stream)=>{
+  //       this.mediaRecorder = new MediaRecorder(stream)
+  //       //this.mediaRecorder.ondataavailable = this.pushChunks;
+
+  //       this.mediaRecorder.ondataavailable = function (e) {
+  //         console.log("pushing chunk")
+  //         $this.chunks.push(e.data);
+  //       };
+  //       console.log('starting recorder...')
+  //       this.mediaRecorder.start();
+  //     })
+     
+  //   } else { alert('getUserMedia not supported.'); }
+  // }
+
+  // stopRecording(){
+  //   console.log("mime type", this.mediaRecorder!.mimeType)
+  //   const blob = new Blob(this.chunks, { type: this.mediaRecorder!.mimeType });
+  //     this.chunks = [];
+  //     const audioURL = window.URL.createObjectURL(blob);
+  //     window.open(audioURL);
+  // }
+
+  // pushChunks(e:BlobEvent){
+  //   this.chunks.push(e.data);
+  //   console.log(e.data.arrayBuffer())
+  // }
+ 
+  // async record_audio() {
+  //   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  //   this.mediaRecorder = new MediaRecorder(stream);
+    
+  //   this.mediaRecorder.ondataavailable = async (event) => {
+  //       if (event.data.size > 0) {
+  //           // Send the audio chunk to the server as a binary blob.
+  //           console.log("chunk..", event.data)
+            
+  //       }
+  //   };
+    
+  //   this.mediaRecorder.start(300); // Collect audio data in 1-second intervals.
+  // }
+
+
+  /**
+   * 
+   * @param stream 
+   */
+  async record_audio() {
+   
+    console.log("audio is starting up ...");
+
+    if (navigator.mediaDevices.getUserMedia){
+      navigator.mediaDevices.getUserMedia({audio:true, video: false}).then(s => this.start_microphone(s))
+    } else { alert('getUserMedia not supported in this browser.'); }
+  };  
+ 
+  async start_microphone(stream:MediaStream){
+    this.createAudioCtx()
+    this.mediaRecorder = new MediaRecorder(stream)
+    console.log('starting recorder...')
+    this.mediaRecorder.start(500);
+
+    await this.connection.send("StreamAudio", this.callSubject);
+    this.mediaRecorder.ondataavailable = (e)=> {
+      e.data.arrayBuffer().then((s) =>{
+        let off = (Math.floor(s.byteLength / 4) * 4)
+        let ds = new Float32Array(s.slice(0, off))
+        
+        //this.streamAudio(s)
+        this.callSubject!.next({id: this.callData?.connectionId, data: ds});
+
+        this.skk = Array.from(ds).concat(this.skk)
+      })
+      
+      this.mediaRecorder?.audioBitsPerSecond
+      this.sks.push(e.data);
+    };
+
+    this.mediaRecorder.onstop = (e) => {
+      console.log("recorder stopped");
+      // this.audioEl.nativeElement.setAttribute("controls", "");
+      // this.audioEl.nativeElement.controls = true;
+      // const blob = new Blob(this.sks, { type: "audio/ogg; codecs=opus" });
+      // this.sks = [];
+      // const audioURL = URL.createObjectURL(blob);
+      // this.audioEl.nativeElement.src = audioURL;
+      //this.playData()
+      this.loadSound(this.skk)
+    }
+
+    this.gainNode = this.audioCtx!.createGain();
+    //gain_node.connect( $this.audioCtx!.destination );
+
+    this.microphone_stream = this.audioCtx!.createMediaStreamSource(stream);
+    this.microphone_stream.connect(this.gainNode); 
+
+    await this.audioCtx!.audioWorklet.addModule("/assets/audio-processor.js");
+    this.processorNode = new AudioWorkletNode(this.audioCtx!, "audio-processor");
+    this.microphone_stream.connect(this.processorNode);
+  }
+
+  closeStreams(){
+    console.log("closing all streams")
+    
+    // close mic stream
+    this.microphone_stream?.disconnect(this.processorNode!)
+    this.processorNode = undefined
+
+    this.microphone_stream?.disconnect(this.gainNode!)
+    this.gainNode = undefined;
+
+    navigator.mediaDevices.getUserMedia({audio: true}).then((stream) =>{
+      stream.getTracks().forEach(track => track.stop())
+    })
+
+    this.mediaRecorder?.stop();
+    this.audioCtx?.close()
+    this.callSubject?.complete()
+
+    //console.log("collected chunks",  this.chunks)
+    //this.playData()
+  }
+
+  async playData(){
+    console.log("playing...")
+    console.log(this.skk)
+
+    this.createAudioCtx()
+
+    let tmpBuffer = this.audioCtx?.createBuffer(1, this.skk.length, this.audioCtx.sampleRate)
+    tmpBuffer?.getChannelData(0)?.set(this.skk, 0)
+    
+    //this.source!.disconnect(this.audioCtx!.destination)
+    this.source = this.audioCtx!.createBufferSource();
+    this.source!.buffer = tmpBuffer!
+    this.source!.connect(this.audioCtx!.destination)
+    this.source.start()
   }
 
   private createAudioCtx(){
@@ -372,12 +675,11 @@ export class ChatComponent implements OnInit, OnDestroy{
   }
 
   disconnectSource(){
+    this.chunks = undefined
     this.source?.stop()
     //this.source?.disconnect(this.audioCtx!.destination)
     this.audioCtx?.destination.disconnect()
   }
-
- // region Chats
 
   newChat(visible:boolean) {
     if(!visible){
@@ -578,6 +880,4 @@ export class ChatComponent implements OnInit, OnDestroy{
           setTimeout(this.start, 5000);
       }
   };
-
-  // endRegion 
 }
